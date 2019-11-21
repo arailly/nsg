@@ -66,7 +66,7 @@ namespace arailib {
                     result_map.erase(--result_map.cend());
                 }
             }
-            if (nearest.point.id == query.id) break;
+//            if (nearest.point.id == query.id) break;
         }
         // result_map => result vector;
         return [&result_map, &checked_nodes]() {
@@ -112,15 +112,17 @@ namespace arailib {
 
         // calc sum of distance of each points
         const auto distance_list = [&sampled, n_sample]() {
-           vector<float> dl;
-           for (const auto& node1 : sampled) {
-               float distance_sum = 0;
-               for (const auto& node2 : sampled) {
-                   if (node1.get().point == node2.get().point) continue;
-                   const auto d = euclidean_distance(node1.get().point, node2.get().point);
-                   distance_sum += d;
-               }
-               dl.push_back(distance_sum);
+           vector<float> dl(n_sample);
+#pragma omp parallel for
+            for (unsigned i = 0; i < n_sample; i++) {
+                const auto& node1 = sampled[i];
+                float distance_sum = 0;
+                for (const auto& node2 : sampled) {
+                if (node1.get().point == node2.get().point) continue;
+                    const auto d = euclidean_distance(node1.get().point, node2.get().point);
+                    distance_sum += d;
+                }
+                dl[i] = distance_sum;
            }
            return dl;
         }();
@@ -129,6 +131,7 @@ namespace arailib {
         return [&distance_list, n_sample]() {
             size_t argmin = 0;
             float min_distance = distance_list[argmin];
+#pragma omp parallel for reduction(min:argmin)
             for (int i = 1; i < n_sample; i++) {
                 auto d = distance_list[i];
                 if (min_distance > d) {
@@ -164,14 +167,14 @@ namespace arailib {
         }
     }
 
-    NSG create_nsg(const string& data_path, const string& knng_path, uint m, uint k, int n = -1) {
+    NSG create_nsg(const string& data_path, const string& knng_path, unsigned m, unsigned k,
+                   unsigned n_sample, int n = -1) {
         // init
         auto series_for_knng = read_csv(data_path, n);
         auto series_for_nsg = series_for_knng;
 
         const auto& knn_graph = create_graph_from_file(series_for_knng, knng_path);
 
-        const auto n_sample = ceil(2 * sqrt(knn_graph.size()) + 2);
         const auto navi_node_id = calc_navi_node_id(knn_graph, n_sample);
         const auto& navi_node_knng = knn_graph[navi_node_id];
         auto nsg = NSG(series_for_nsg, navi_node_id);
@@ -197,10 +200,10 @@ namespace arailib {
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
 
-            if (v.point.id % par == 0) {
-                float progress = v.point.id / par;
-                cout << "progress: " << progress << "%" << endl;
-            }
+//            if (v.point.id % par == 0) {
+//                float progress = v.point.id / par;
+//                cout << "progress: " << progress << "%" << endl;
+//            }
 
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];

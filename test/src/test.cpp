@@ -94,7 +94,8 @@ TEST(nsg, create_nsg) {
     string data_path = "./data.csv";
     string knng_path = "./knng.csv";
     uint m = 4;
-    const auto nsg = create_nsg(data_path, knng_path, m, m);
+    uint n_sample = 8;
+    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample);
 
     ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
     ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
@@ -108,10 +109,10 @@ TEST(nsg, create_nsg) {
 }
 
 TEST(nsg, search) {
-    uint n = 1000, k = 10, m = 40, n_query = 4;
+    unsigned n = 1000, k = 10, m = 50, n_query = 10, n_sample = 1000;
     string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift1k-k20.csv";
-    const auto nsg = create_nsg(data_path, knng_path, m, k, n);
+    const auto nsg = create_nsg(data_path, knng_path, m, k, n_sample, n);
 
     const auto [series, queries] = [&data_path, n, n_query]() -> pair<Series, Series> {
         const auto series_with_query = read_csv(data_path, n + n_query);
@@ -129,11 +130,6 @@ TEST(nsg, search) {
         const auto result = knn_search(query, k, nsg.navi_node);
 
         ASSERT_EQ(result.size(), k);
-        int n_correct = 0;
-        for (int i = 0; i < k; i++) {
-            n_correct += (result[i].get().point.id == scan_result[i].id);
-        }
-
         float recall = 0;
         for (const auto& exact : scan_result) {
             for (const auto& approx : result) {
@@ -142,7 +138,7 @@ TEST(nsg, search) {
         }
         recall /= k;
 
-        ASSERT_GE(recall, 0.6);
+        ASSERT_GE(recall, 0.4);
     }
 }
 
