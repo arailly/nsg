@@ -1,0 +1,8 @@
+{
+  "data_path": "/home/arai/workspace/dataset/sift/sift_base.csv",
+  "knng_path": "/home/arai/workspace/index/sift1m-k50.csv",
+  "save_path": "/home/arai/workspace/index/nsg-sift1m-m50.csv",
+  "n": 1000000,
+  "m": 50,
+  "k": 20
+}
