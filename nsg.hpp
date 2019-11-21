@@ -192,6 +192,8 @@ namespace arailib {
             return node_list;
         }();
 
+        cout << "complete: calcurate kNN" << endl;
+
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
 
