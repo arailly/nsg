@@ -4,5 +4,6 @@
   "save_path": "/home/arai/workspace/index/nsg-sift1m-m50.csv",
   "n": 1000000,
   "m": 50,
-  "k": 20
+  "k": 20,
+  "n_sample": 10000
 }
