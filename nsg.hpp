@@ -106,7 +106,7 @@ namespace arailib {
         }();
     }
 
-    size_t calc_navi_node_id(const Graph& knn_graph, uint n_sample, uint random_state = 42) {
+    size_t find_navi_node_id(const Graph& knn_graph, uint n_sample, uint random_state = 42) {
         mt19937 engine(random_state);
         uniform_int_distribution<size_t> dist(0, knn_graph.size() - 1);
 
@@ -190,7 +190,7 @@ namespace arailib {
 
         const auto& knn_graph = create_graph_from_file(series_for_knng, knng_path);
 
-        const auto navi_node_id = calc_navi_node_id(knn_graph, n_sample);
+        const auto navi_node_id = find_navi_node_id(knn_graph, n_sample);
         const auto& navi_node_knng = knn_graph[navi_node_id];
         auto nsg = NSG(series_for_nsg, navi_node_id);
 

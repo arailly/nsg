@@ -50,7 +50,7 @@ TEST(graph, knn_search_with_checked) {
     ASSERT_EQ(result[4].get().point.id, 0);
 }
 
-TEST(nsg, calc_navi_node_id) {
+TEST(nsg, find_navi_node_id) {
     const auto p0 = Point(0, {1});
     const auto p1 = Point(1, {2});
     const auto p2 = Point(2, {3});
@@ -62,7 +62,7 @@ TEST(nsg, calc_navi_node_id) {
     auto series = Series{p0, p1, p2, p3, p4};
     auto graph = Graph(series);
 
-    const auto navi_node_id = calc_navi_node_id(graph, n_sample);
+    const auto navi_node_id = find_navi_node_id(graph, n_sample);
     ASSERT_EQ(navi_node_id, 2);
 }
 
