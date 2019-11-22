@@ -109,7 +109,7 @@ TEST(nsg, create_nsg) {
 }
 
 TEST(nsg, search) {
-    unsigned n = 1000, k = 10, m = 50, n_query = 10, n_sample = 1000;
+    unsigned n = 1000, k = 10, m = 50, n_query = 3, n_sample = 1000;
     string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift1k-k20.csv";
     const auto nsg = create_nsg(data_path, knng_path, m, k, n_sample, n);
@@ -138,7 +138,7 @@ TEST(nsg, search) {
         }
         recall /= k;
 
-        ASSERT_GE(recall, 0.4);
+        ASSERT_GE(recall, 0.8);
     }
 }
 

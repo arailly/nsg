@@ -22,6 +22,22 @@ namespace arailib {
         NSG(Series& series, size_t id) : Graph(series), navi_node(nodes[id]) {}
     };
 
+    void write_graph(const string& save_path, const NSG& nsg) {
+        ofstream ofs(save_path);
+        // write navigating node
+        ofs << nsg.navi_node.point.id << endl;
+
+        // write connection
+        string line;
+        for (const auto& node : nsg) {
+            line = to_string(node.point.id);
+            for (const auto& neighbor : node.neighbors) {
+                line += ',' + to_string(neighbor.get().point.id);
+            }
+            ofs << line << endl;
+        }
+    }
+
     // nsw's knn_search with visited node
     vector<reference_wrapper<const Node>>
     knn_search_with_checked(const Point& query, const uint k, const Node& start_node) {
@@ -131,7 +147,6 @@ namespace arailib {
         return [&distance_list, n_sample]() {
             size_t argmin = 0;
             float min_distance = distance_list[argmin];
-#pragma omp parallel for reduction(min:argmin)
             for (int i = 1; i < n_sample; i++) {
                 auto d = distance_list[i];
                 if (min_distance > d) {
