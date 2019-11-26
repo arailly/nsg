@@ -22,8 +22,13 @@ namespace arailib {
         NSG(Series& series, size_t id) : Graph(series), navi_node(nodes[id]) {}
     };
 
-    NSG load_nsg(const string& data_path, const string& graph_path, int n = -1) {
-        auto series = read_csv(data_path, n);
+    NSG load_nsg(const string& data_path, const string& graph_path, int nk) {
+        Series series;
+        // csv
+        if (data_path.rfind(".csv", data_path.size()) < data_path.size())
+            series = read_csv(data_path);
+        // dir
+        series = load_data(data_path, nk);
 
         ifstream ifs(graph_path);
         if (!ifs) throw runtime_error("Can't open file!");
@@ -246,7 +251,7 @@ namespace arailib {
                 p.add_neighbor(v);
                 v.add_neighbor(p);
                 ++n_add_edges;
-                if (n_add_edges >= m) break;
+                if (p.get_n_neighbors() >= m || v.get_n_neighbors() >= m) break;
             }
         }
 

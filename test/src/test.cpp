@@ -91,23 +91,23 @@ TEST(nsg, conflict) {
     ASSERT_FALSE(conflict(graph2[0], graph2[3]));
 }
 
-//TEST(nsg, create_nsg) {
-//    string data_path = "./data.csv";
-//    string knng_path = "./knng.csv";
-//    uint m = 4;
-//    uint n_sample = 8;
-//    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample, n_sample);
-//
-//    ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
-//    ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
-//    ASSERT_EQ(nsg[0].neighbors[2].get().point.id, 4);
-//    ASSERT_EQ(nsg[0].neighbors[3].get().point.id, 3);
-//
-//    ASSERT_EQ(nsg[4].neighbors[0].get().point.id, 0);
-//    ASSERT_EQ(nsg[4].neighbors[1].get().point.id, 1);
-//    ASSERT_EQ(nsg[4].neighbors[2].get().point.id, 2);
-//    ASSERT_EQ(nsg[4].neighbors[3].get().point.id, 6);
-//}
+TEST(nsg, create_nsg) {
+    string data_path = "./data.csv";
+    string knng_path = "./knng.csv";
+    uint m = 4;
+    uint n_sample = 8;
+    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample, n_sample);
+
+    ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
+    ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
+    ASSERT_EQ(nsg[0].neighbors[2].get().point.id, 4);
+    ASSERT_EQ(nsg[0].neighbors[3].get().point.id, 3);
+
+    ASSERT_EQ(nsg[4].neighbors[0].get().point.id, 0);
+    ASSERT_EQ(nsg[4].neighbors[1].get().point.id, 1);
+    ASSERT_EQ(nsg[4].neighbors[2].get().point.id, 2);
+    ASSERT_EQ(nsg[4].neighbors[3].get().point.id, 6);
+}
 
 TEST(nsg, search) {
     unsigned nk = 2, k = 5, m = 50, n_query = 20, n_sample = 1000;
@@ -143,13 +143,13 @@ TEST(nsg, search) {
     }
 }
 
-TEST(nsg, knn_search) {
-    unsigned k = 10;
-    const string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
-    const string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
-    const string nsg_path = "/Users/yusuke-arai/workspace/index/nsg-sift1m-m50.csv";
-    const auto nsg = load_nsg(data_path, nsg_path);
-}
+//TEST(nsg, knn_search) {
+//    unsigned k = 10;
+//    const string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
+//    const string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
+//    const string nsg_path = "/Users/yusuke-arai/workspace/index/nsg-sift1m-m50.csv";
+//    const auto nsg = load_nsg(data_path, nsg_path);
+//}
 
 TEST(s, s) {
     unsigned m = 40, k = 20, n = 10000, n_sample = 1000;
