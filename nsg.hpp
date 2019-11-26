@@ -184,9 +184,9 @@ namespace arailib {
     }
 
     bool conflict(const Node& p, const Node& v) {
-        // true if v is in p's neighbor r's neighbor (edge pr is not detour)
+        // true if p is in v's neighbor r's neighbor (edge pr is not detour)
         for (const auto& r : v.neighbors) {
-            if (r.get().point.id == v.point.id) return true;
+            if (r.get().point.id == p.point.id) return true;
             for (const auto& r_neighbor : r.get().neighbors) {
                 if (r_neighbor.get().point.id != p.point.id) continue;
 
@@ -248,10 +248,10 @@ namespace arailib {
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
                 if (p.point == v.point || conflict(p, v)) continue; // skip self or conflicts
-                p.add_neighbor(v);
+//                p.add_neighbor(v);
                 v.add_neighbor(p);
                 ++n_add_edges;
-                if (p.get_n_neighbors() >= m || v.get_n_neighbors() >= m) break;
+                if (n_add_edges <= m) break;
             }
         }
 

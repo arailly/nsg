@@ -110,7 +110,7 @@ TEST(nsg, create_nsg) {
 }
 
 TEST(nsg, search) {
-    unsigned nk = 2, k = 5, m = 50, n_query = 20, n_sample = 1000;
+    unsigned nk = 2, k = 10, m = 50, n_query = 20, n_sample = 1000;
     string data_dir = "/Users/yusuke-arai/workspace/dataset/sift/sift_base/";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift1k-k20.csv";
     const auto nsg = create_nsg(data_dir, knng_path, m, k, n_sample, nk);
