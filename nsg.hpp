@@ -247,11 +247,10 @@ namespace arailib {
             unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
-                if (p.point == v.point || conflict(p, v)) continue; // skip self or conflicts
-//                p.add_neighbor(v);
+                if (p.point == v.point || conflict(p, v)) continue;
                 v.add_neighbor(p);
                 ++n_add_edges;
-                if (n_add_edges <= m) break;
+                if (n_add_edges >= m) break;
             }
         }
 
