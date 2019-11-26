@@ -22,6 +22,26 @@ namespace arailib {
         NSG(Series& series, size_t id) : Graph(series), navi_node(nodes[id]) {}
     };
 
+    NSG load_nsg(const string& data_path, const string& graph_path, int n = -1) {
+        auto series = read_csv(data_path, n);
+
+        ifstream ifs(graph_path);
+        if (!ifs) throw runtime_error("Can't open file!");
+
+        string line; getline(ifs, line);
+        unsigned navi_node_id = stoi(line);
+
+        NSG nsg(series, navi_node_id);
+        while (getline(ifs, line)) {
+            const auto&& ids = split<size_t>(line);
+            for (unsigned i = 1; i < ids.size(); i++) {
+                nsg[ids[0]].add_neighbor(nsg[ids[i]]);
+            }
+        }
+
+        return nsg;
+    }
+
     void write_graph(const string& save_path, const NSG& nsg) {
         ofstream ofs(save_path);
         // write navigating node
@@ -59,7 +79,7 @@ namespace arailib {
             // check if all elements are evaluated
             if (distance_to_nearest > furthest.first) break;
 
-            for (auto& neighbor : nearest.neighbors) {
+            for (const auto& neighbor : nearest.neighbors) {
                 if (checked[neighbor.get().point.id]) continue;
                 checked[neighbor.get().point.id] = true;
 
@@ -182,10 +202,10 @@ namespace arailib {
         }
     }
 
-    NSG create_nsg(const string& data_path, const string& knng_path, unsigned m, unsigned k,
-                   unsigned n_sample, int n = -1) {
+    NSG create_nsg(const string& data_dir, const string& knng_path, unsigned m, unsigned k,
+                   unsigned n_sample, int nk) {
         // init
-        auto series_for_knng = read_csv(data_path, n);
+        auto series_for_knng = load_data(data_dir, nk);
         auto series_for_nsg = series_for_knng;
 
         const auto& knn_graph = create_graph_from_file(series_for_knng, knng_path);
@@ -214,18 +234,14 @@ namespace arailib {
 
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
-
-//            if (v.point.id % par == 0) {
-//                float progress = v.point.id / par;
-//                cout << "progress: " << progress << "%" << endl;
-//            }
-
+            unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
-                if (p.get_n_neighbors() >= m || v.get_n_neighbors() >= m) break;
                 if (p.point == v.point || conflict(p, v)) continue; // skip self or conflicts
                 p.add_neighbor(v);
                 v.add_neighbor(p);
+                ++n_add_edges;
+                if (n_add_edges >= m) break;
             }
         }
 
