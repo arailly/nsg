@@ -216,8 +216,6 @@ namespace arailib {
 
         cout << "complete: load data and kNNG" << endl;
 
-        const unsigned par = nsg.size() / 100;
-
         // create
         const auto checked_node_list_along_search = [&knn_graph, &navi_node_knng, k]() {
             vector<vector<reference_wrapper<const Node>>> node_list(knn_graph.size());
@@ -232,8 +230,15 @@ namespace arailib {
 
         cout << "complete: calcurate kNN" << endl;
 
+        const unsigned par = nsg.size() / 100;
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
+
+            if (v.point.id % par == 0) {
+                float progress = v.point.id / par;
+                cout << "progress: " << progress << "%" << endl;
+            }
+
             unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
