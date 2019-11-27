@@ -22,13 +22,13 @@ namespace arailib {
         NSG(Series& series, size_t id) : Graph(series), navi_node(nodes[id]) {}
     };
 
-    NSG load_nsg(const string& data_path, const string& graph_path, int nk) {
+    NSG load_nsg(const string& data_path, const string& graph_path, int n) {
         Series series;
         // csv
         if (data_path.rfind(".csv", data_path.size()) < data_path.size())
-            series = read_csv(data_path);
+            series = read_csv(data_path, n);
         // dir
-        series = load_data(data_path, nk);
+        series = load_data(data_path, n);
 
         ifstream ifs(graph_path);
         if (!ifs) throw runtime_error("Can't open file!");
@@ -47,19 +47,26 @@ namespace arailib {
         return nsg;
     }
 
-    void write_graph(const string& save_path, const NSG& nsg) {
-        ofstream ofs(save_path);
+    void write_graph(const string& save_dir, const NSG& nsg) {
+        const string navi_node_path = save_dir + "/navi-node.csv";
+        ofstream navi_node_ofs(navi_node_path);
         // write navigating node
-        ofs << nsg.navi_node.point.id << endl;
+        navi_node_ofs << nsg.navi_node.point.id << endl;
 
         // write connection
-        string line;
+        vector<string> lines(ceil(nsg.size() / 1000.0));
         for (const auto& node : nsg) {
-            line = to_string(node.point.id);
+            const unsigned line_i = node.point.id / 1000;
             for (const auto& neighbor : node.neighbors) {
-                line += ',' + to_string(neighbor.get().point.id);
+                lines[line_i] += to_string(node.point.id) + ',' +
+                                 to_string(neighbor.get().point.id) + '\n';
             }
-            ofs << line << endl;
+        }
+
+        for (int i = 0; i < lines.size(); i++) {
+            const string path = save_dir + "/" + to_string(i) + ".csv";
+            ofstream ofs(path);
+            ofs << lines[i];
         }
     }
 
