@@ -22,29 +22,61 @@ namespace arailib {
         NSG(Series& series, size_t id) : Graph(series), navi_node(nodes[id]) {}
     };
 
+    bool is_csv(const string& path) {
+        return (path.rfind(".csv", path.size()) < path.size());
+    }
+
     NSG load_nsg(const string& data_path, const string& graph_path, int n) {
-        Series series;
-        // csv
-        if (data_path.rfind(".csv", data_path.size()) < data_path.size())
-            series = read_csv(data_path, n);
-        // dir
-        series = load_data(data_path, n);
+        // load data
+        auto series = [&data_path, n]() {
+            // csv
+            if (is_csv(data_path)) return read_csv(data_path, n);
+            // dir
+            return load_data(data_path, n);
+        }();
 
-        ifstream ifs(graph_path);
-        if (!ifs) throw runtime_error("Can't open file!");
+        // load nsg
+        return [&series, &graph_path, n]() {
+            // csv
+            if (is_csv(graph_path)) {
+                ifstream ifs(graph_path);
+                if (!ifs) throw runtime_error("Can't open file!");
 
-        string line; getline(ifs, line);
-        unsigned navi_node_id = stoi(line);
+                string line; getline(ifs, line);
+                unsigned navi_node_id = stoi(line);
 
-        NSG nsg(series, navi_node_id);
-        while (getline(ifs, line)) {
-            const auto&& ids = split<size_t>(line);
-            for (unsigned i = 1; i < ids.size(); i++) {
-                nsg[ids[0]].add_neighbor(nsg[ids[i]]);
+                NSG nsg(series, navi_node_id);
+                while (getline(ifs, line)) {
+                    const auto&& ids = split<size_t>(line);
+                    for (unsigned i = 1; i < ids.size(); i++) {
+                        nsg[ids[0]].add_neighbor(nsg[ids[i]]);
+                    }
+                }
+                return nsg;
             }
-        }
 
-        return nsg;
+            // dir
+            const string navi_node_path = graph_path + "/navi-node.csv";
+            ifstream navi_node_ifs(navi_node_path);
+            if (!navi_node_ifs) throw runtime_error("Can't open file!");
+
+            string navi_node_line; getline(navi_node_ifs, navi_node_line);
+            unsigned navi_node_id = stoi(navi_node_line);
+
+            NSG nsg(series, navi_node_id);
+
+#pragma omp parallel for
+            for (int i = 0; i < n; i++) {
+                const string path = graph_path + "/" + to_string(i) + ".csv";
+                ifstream ifs(path);
+                string line;
+                while (getline(ifs, line)) {
+                    const auto ids = split<size_t>(line);
+                    nsg[ids[0]].add_neighbor(nsg[ids[1]]);
+                }
+            }
+            return nsg;
+        }();
     }
 
     void write_graph(const string& save_dir, const NSG& nsg) {
