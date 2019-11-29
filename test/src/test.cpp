@@ -113,16 +113,16 @@ TEST(nsg, create_nsg) {
 }
 
 TEST(nsg, search) {
-    unsigned nk = 2, k = 10, m = 30, n_query = 20, n_sample = 1000;
+    unsigned n = 10, k = 10, m = 30, n_query = 20, n_sample = 1000;
     string data_dir = "/Users/yusuke-arai/workspace/dataset/sift/sift_base/";
-    string knng_path = "/Users/yusuke-arai/workspace/index/sift1k-k20.csv";
-    const auto nsg = create_nsg(data_dir, knng_path, m, k, n_sample, nk);
+    string knng_path = "/Users/yusuke-arai/workspace/index/sift10k-k20.csv";
+    const auto nsg = create_nsg(data_dir, knng_path, m, k, n_sample, n);
 
-    const auto [series, queries] = [&data_dir, nk, n_query]() -> pair<Series, Series> {
-        const auto series_with_query = load_data(data_dir, nk + n_query);
+    const auto [series, queries] = [&data_dir, n, n_query]() -> pair<Series, Series> {
+        const auto series_with_query = load_data(data_dir, n + n_query);
         Series ss, qs;
-        for (int i = 0; i < nk * 1000; i++) ss.push_back(series_with_query[i]);
-        for (int i = nk * 1000; i < nk * 1000 + n_query; i++) qs.push_back(series_with_query[i]);
+        for (int i = 0; i < n * 1000; i++) ss.push_back(series_with_query[i]);
+        for (int i = n * 1000; i < n * 1000 + n_query; i++) qs.push_back(series_with_query[i]);
         return make_pair(ss, qs);
     }();
 

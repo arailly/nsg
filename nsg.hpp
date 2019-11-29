@@ -144,7 +144,7 @@ namespace arailib {
             }
 //            if (nearest.point.id == query.id) break;
         }
-        
+
         // add query_node's kNN
         for (const auto& neighbor : query_node.neighbors) {
             if (checked[neighbor.get().point.id]) continue;
@@ -152,12 +152,12 @@ namespace arailib {
             const auto distance_to_neighbor = euclidean_distance(query_node.point, neighbor.get().point);
             result_map.emplace(distance_to_neighbor, neighbor.get());
         }
-        
+
         // result_map => result vector;
         return [&result_map, &checked_nodes]() {
             vector<reference_wrapper<const Node>> r;
             unordered_map<size_t, bool> added;
-            
+
             // add result
             for (const auto& neighbor_pair : result_map) {
                 added[neighbor_pair.second.get().point.id] = true;
@@ -257,7 +257,7 @@ namespace arailib {
         auto series_for_knng = load_data(data_dir, nk);
         auto series_for_nsg = series_for_knng;
 
-        const auto& knn_graph = create_graph_from_file(series_for_knng, knng_path);
+        const auto& knn_graph = load_graph(series_for_knng, knng_path, nk);
 
         const auto navi_node_id = find_navi_node_id(knn_graph, n_sample);
         const auto& navi_node_knng = knn_graph[navi_node_id];
