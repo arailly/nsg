@@ -1,5 +1,5 @@
 {
-  "data_dir": "/home/arai/workspace/dataset/sift/sift_base/",
+  "data_path": "/home/arai/workspace/dataset/sift/sift_base/",
   "knng_path": "/home/arai/workspace/index/sift1m-k50.csv",
   "save_path": "/home/arai/workspace/index/nsg-sift1m-m50.csv",
   "n": 1000,
