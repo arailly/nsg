@@ -14,6 +14,7 @@
 #include <random>
 #include <cmath>
 #include <numeric>
+#include <chrono>
 #include <arailib.hpp>
 
 namespace arailib {
