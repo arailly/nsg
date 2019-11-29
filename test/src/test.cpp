@@ -99,7 +99,7 @@ TEST(nsg, create_nsg) {
     string knng_path = "./knng.csv";
     uint m = 4;
     uint n_sample = 8;
-    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample, n_sample);
+    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample);
 
     ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
     ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
@@ -115,23 +115,19 @@ TEST(nsg, create_nsg) {
 TEST(nsg, search) {
     unsigned n = 10, k = 10, m = 30, n_query = 20, n_sample = 1000;
     string data_dir = "/Users/yusuke-arai/workspace/dataset/sift/sift_base/";
+    string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift10k-k20.csv";
-    const auto nsg = create_nsg(data_dir, knng_path, m, k, n_sample, n);
+    const auto nsg = create_nsg(data_dir, knng_path, m, n_sample, n);
 
-    const auto [series, queries] = [&data_dir, n, n_query]() -> pair<Series, Series> {
-        const auto series_with_query = load_data(data_dir, n + n_query);
-        Series ss, qs;
-        for (int i = 0; i < n * 1000; i++) ss.push_back(series_with_query[i]);
-        for (int i = n * 1000; i < n * 1000 + n_query; i++) qs.push_back(series_with_query[i]);
-        return make_pair(ss, qs);
-    }();
+    const auto series = load_data(data_dir, n);
+    const auto queries = read_csv(query_path, n_query);
 
     for (const auto& query : queries) {
         // calcurate exact result by scan
         const auto scan_result = scan_knn_search(query, k, series);
 
         // calcurate result by nsg
-        const auto result = knn_search(query, k, nsg.navi_node);
+        const auto result = knn_search(query, k, nsg.navi_node, 40);
 
         ASSERT_EQ(result.size(), k);
         float recall = 0;
@@ -144,20 +140,4 @@ TEST(nsg, search) {
 
         ASSERT_GE(recall, 0);
     }
-}
-
-//TEST(nsg, knn_search) {
-//    unsigned k = 10;
-//    const string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
-//    const string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
-//    const string nsg_path = "/Users/yusuke-arai/workspace/index/nsg-sift1m-m50.csv";
-//    const auto nsg = load_nsg(data_path, nsg_path);
-//}
-
-TEST(s, s) {
-    unsigned m = 40, k = 20, n = 10000, n_sample = 1000;
-    const string data_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_base.csv";
-    const string knng_path = "/Users/yusuke-arai/workspace/index/sift10k-k20.csv";
-    const string save_path = "/Users/yusuke-arai/workspace/index/nsg-sift10k-m40.csv";
-    auto nsg = create_nsg(data_path, knng_path, m, k, n_sample, n);
 }

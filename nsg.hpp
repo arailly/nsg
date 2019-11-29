@@ -100,7 +100,7 @@ namespace arailib {
 
     // nsw's knn_search with visited node
     vector<reference_wrapper<const Node>>
-    knn_search_with_checked(const Node& query_node, const uint k, const Node& start_node) {
+    knn_search_with_checked(const Node& query_node, const unsigned k, const Node& start_node) {
         unordered_map<size_t, bool> checked;
         checked[start_node.point.id] = true;
 
@@ -173,6 +173,62 @@ namespace arailib {
 
             return r;
         }();
+    }
+
+    vector<reference_wrapper<const Node>>
+    knn_search_with_checked(const Node& query_node, const Node& start_node,
+                            const unsigned max_result = 500, const unsigned n_candidate = 40) {
+        const auto start = chrono::system_clock::now();
+
+        unordered_map<size_t, bool> checked, added;
+        added[start_node.point.id] = true;
+
+        multimap<float, reference_wrapper<const Node>> candidates, checked_nodes;
+        const auto distance_to_start_node = euclidean_distance(query_node.point, start_node.point);
+        candidates.emplace(distance_to_start_node, start_node);
+
+        while (true) {
+            bool is_updated = false;
+            for (auto candidate_pair_ptr = candidates.begin();
+                 candidate_pair_ptr != candidates.end();
+                 candidate_pair_ptr++) {
+
+                const auto& candidate = candidate_pair_ptr->second.get();
+                if (checked[candidate.point.id]) continue;
+                checked[candidate.point.id] = true;
+                is_updated = true;
+
+                checked_nodes.emplace(candidate_pair_ptr->first, candidate_pair_ptr->second);
+
+                for (const auto& neighbor : candidate.neighbors) {
+                    if (added[neighbor.get().point.id]) continue;
+                    added[neighbor.get().point.id] = true;
+
+                    const auto d = euclidean_distance(query_node.point, neighbor.get().point);
+                    candidates.emplace(d, neighbor.get());
+                }
+
+                // resize candidates n_candidate
+                while (candidates.size() > n_candidate) candidates.erase(--candidates.cend());
+                candidate_pair_ptr = candidates.begin();
+            }
+            if (!is_updated) break;
+        }
+
+        // add query_node's kNN
+        vector<reference_wrapper<const Node>> result;
+        for (const auto& neighbor : query_node.neighbors) {
+            checked[neighbor.get().point.id] = true;
+            result.emplace_back(neighbor.get());
+        }
+
+        // add checked nodes
+        for (const auto& c : checked_nodes) {
+            result.emplace_back(c.second.get());
+            if (result.size() >= max_result) break;
+        }
+
+        return result;
     }
 
     size_t find_navi_node_id(const Graph& knn_graph, uint n_sample, uint random_state = 42) {
@@ -251,13 +307,12 @@ namespace arailib {
         }
     }
 
-    NSG create_nsg(const string& data_dir, const string& knng_path, unsigned m, unsigned k,
-                   unsigned n_sample, int nk) {
+    NSG create_nsg(const string& data_path, const string& knng_path, unsigned m, unsigned n_sample, int n) {
         // init
-        auto series_for_knng = load_data(data_dir, nk);
+        auto series_for_knng = load_data(data_path, n);
         auto series_for_nsg = series_for_knng;
 
-        const auto& knn_graph = load_graph(series_for_knng, knng_path, nk);
+        const auto& knn_graph = load_graph(series_for_knng, knng_path, n);
 
         const auto navi_node_id = find_navi_node_id(knn_graph, n_sample);
         const auto& navi_node_knng = knn_graph[navi_node_id];
@@ -266,12 +321,12 @@ namespace arailib {
         cout << "complete: load data and kNNG" << endl;
 
         // create
-        const auto checked_node_list_along_search = [&knn_graph, &navi_node_knng, k]() {
+        const auto checked_node_list_along_search = [&knn_graph, &navi_node_knng]() {
             vector<vector<reference_wrapper<const Node>>> node_list(knn_graph.size());
 #pragma omp parallel for
             for (unsigned i = 0; i < knn_graph.size(); i++) {
                 const auto& v = knn_graph[i];
-                const auto nodes = knn_search_with_checked(v, k, navi_node_knng);
+                const auto nodes = knn_search_with_checked(v, navi_node_knng);
                 node_list[i] = nodes;
             }
             return node_list;
@@ -314,7 +369,7 @@ namespace arailib {
             for (const auto& node : nsg) {
                 if (connected[node.point.id]) continue;
                 auto& disconnected_node = nsg[node.point.id];
-                const auto knn = knn_search(disconnected_node.point, k, nsg.navi_node);
+                const auto knn = knn_search(disconnected_node.point, 1, nsg.navi_node, 40);
                 auto& nearest_to_disconnected = nsg[knn[0].get().point.id];
                 disconnected_node.add_neighbor(nearest_to_disconnected);
                 nearest_to_disconnected.add_neighbor(disconnected_node);
