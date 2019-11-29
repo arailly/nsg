@@ -12,8 +12,10 @@ int main() {
     const string save_path = config["save_path"];
     const unsigned n = config["n"];
     const unsigned m = config["m"];
+    const unsigned l = config["l"];
+    const unsigned c = config["c"];
     const unsigned n_sample = config["n_sample"];
 
-    const auto nsg = create_nsg(data_path, knng_path, m, n_sample, n);
+    const auto nsg = create_nsg(data_path, knng_path, m, n_sample, n, l, c);
     write_graph(save_path, nsg);
 }
