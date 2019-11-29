@@ -99,6 +99,49 @@ namespace arailib {
         }
     }
 
+    vector<reference_wrapper<const Node>>
+    knn_search(const Point query, const unsigned k,
+               const Node& start_node, const unsigned l) {
+        unordered_map<size_t, bool> checked, added;
+        added[start_node.point.id] = true;
+
+        multimap<float, reference_wrapper<const Node>> candidates;
+        const auto distance_to_start_node = euclidean_distance(query, start_node.point);
+        candidates.emplace(distance_to_start_node, start_node);
+
+        while (true) {
+            bool is_updated = false;
+            for (auto candidate_pair_ptr = candidates.begin();
+                 candidate_pair_ptr != candidates.end();
+                 ++candidate_pair_ptr) {
+
+                const auto& candidate = candidate_pair_ptr->second.get();
+                if (checked[candidate.point.id]) continue;
+                checked[candidate.point.id] = true;
+                is_updated = true;
+
+                for (const auto& neighbor : candidate.neighbors) {
+                    if (added[neighbor.get().point.id]) continue;
+                    added[neighbor.get().point.id] = true;
+
+                    const auto d = euclidean_distance(query, neighbor.get().point);
+                    candidates.emplace(d, neighbor.get());
+                }
+                // resize candidates l
+                while (candidates.size() > l) candidates.erase(--candidates.cend());
+                candidate_pair_ptr = candidates.begin();
+            }
+            if (!is_updated) break;
+        }
+
+        vector<reference_wrapper<const Node>> result;
+        for (const auto& c : candidates) {
+            result.emplace_back(c.second.get());
+            if (result.size() >= k) break;
+        }
+        return result;
+    }
+
     // nsw's knn_search with visited node
     vector<reference_wrapper<const Node>>
     knn_search_with_checked(const Node& query_node, const unsigned k, const Node& start_node) {
@@ -179,7 +222,6 @@ namespace arailib {
     vector<reference_wrapper<const Node>>
     knn_search_with_checked(const Node& query_node, const Node& start_node,
                             const unsigned l = 40, const unsigned c = 500) {
-        const auto start = chrono::system_clock::now();
 
         unordered_map<size_t, bool> checked, added;
         added[start_node.point.id] = true;
@@ -191,8 +233,7 @@ namespace arailib {
         while (true) {
             bool is_updated = false;
             for (auto candidate_pair_ptr = candidates.begin();
-                 candidate_pair_ptr != candidates.end();
-                 candidate_pair_ptr++) {
+                 candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
 
                 const auto& candidate = candidate_pair_ptr->second.get();
                 if (checked[candidate.point.id]) continue;
@@ -219,6 +260,7 @@ namespace arailib {
         // add query_node's kNN
         vector<reference_wrapper<const Node>> result;
         for (const auto& neighbor : query_node.neighbors) {
+            if (checked[neighbor.get().point.id]) continue;
             checked[neighbor.get().point.id] = true;
             result.emplace_back(neighbor.get());
         }

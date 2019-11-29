@@ -18,7 +18,7 @@ set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include")
 set(OpenMP_C_LIB_NAMES omp)
 set(OpenMP_CXX_LIB_NAMES omp)
 set(OpenMP_omp_LIBRARY /usr/local/opt/libomp/lib/libomp.dylib)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Xpreprocessor -fopenmp -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Xpreprocessor -fopenmp -O0")
 
 target_include_directories(${PROJECT_NAME} PRIVATE /usr/local/opt/libomp/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE /usr/local/opt/libomp/lib/libomp.dylib)
