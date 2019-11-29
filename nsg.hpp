@@ -100,12 +100,12 @@ namespace arailib {
 
     // nsw's knn_search with visited node
     vector<reference_wrapper<const Node>>
-    knn_search_with_checked(const Point& query, const uint k, const Node& start_node) {
+    knn_search_with_checked(const Node& query_node, const uint k, const Node& start_node) {
         unordered_map<size_t, bool> checked;
         checked[start_node.point.id] = true;
 
         multimap<float, reference_wrapper<const Node>> candidates, result_map, checked_nodes;
-        const auto distance_to_start_node = euclidean_distance(query, start_node.point);
+        const auto distance_to_start_node = euclidean_distance(query_node.point, start_node.point);
         candidates.emplace(distance_to_start_node, start_node);
         result_map.emplace(distance_to_start_node, start_node);
         checked_nodes.emplace(distance_to_start_node, start_node);
@@ -123,7 +123,7 @@ namespace arailib {
                 if (checked[neighbor.get().point.id]) continue;
                 checked[neighbor.get().point.id] = true;
 
-                const auto& distance_to_neighbor = euclidean_distance(query, neighbor.get().point);
+                const auto& distance_to_neighbor = euclidean_distance(query_node.point, neighbor.get().point);
 
                 checked_nodes.emplace(distance_to_neighbor, neighbor.get());
 
@@ -134,7 +134,7 @@ namespace arailib {
                 }
 
                 const auto& furthest_ = *(--result_map.end());
-                const auto& distance_to_furthest_ = euclidean_distance(query, furthest_.second.get().point);
+                const auto& distance_to_furthest_ = euclidean_distance(query_node.point, furthest_.second.get().point);
 
                 if (distance_to_neighbor < distance_to_furthest_) {
                     candidates.emplace(distance_to_neighbor, neighbor.get());
@@ -144,11 +144,20 @@ namespace arailib {
             }
 //            if (nearest.point.id == query.id) break;
         }
+        
+        // add query_node's kNN
+        for (const auto& neighbor : query_node.neighbors) {
+            if (checked[neighbor.get().point.id]) continue;
+            checked[neighbor.get().point.id] = true;
+            const auto distance_to_neighbor = euclidean_distance(query_node.point, neighbor.get().point);
+            result_map.emplace(distance_to_neighbor, neighbor.get());
+        }
+        
         // result_map => result vector;
         return [&result_map, &checked_nodes]() {
             vector<reference_wrapper<const Node>> r;
             unordered_map<size_t, bool> added;
-
+            
             // add result
             for (const auto& neighbor_pair : result_map) {
                 added[neighbor_pair.second.get().point.id] = true;
@@ -262,7 +271,7 @@ namespace arailib {
 #pragma omp parallel for
             for (unsigned i = 0; i < knn_graph.size(); i++) {
                 const auto& v = knn_graph[i];
-                const auto nodes = knn_search_with_checked(v.point, k, navi_node_knng);
+                const auto nodes = knn_search_with_checked(v, k, navi_node_knng);
                 node_list[i] = nodes;
             }
             return node_list;

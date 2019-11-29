@@ -36,14 +36,17 @@ TEST(graph, knn_search_with_checked) {
     const auto p3 = Point(3, {4});
     const auto p4 = Point(4, {5});
 
-    auto series = Series{p0, p1, p2, p3, p4};
+    auto series = Series{p0, p1, p2, p3, p4, query};
     auto graph = Graph(series);
     graph[0].add_neighbor(graph[1]);
     graph[1].add_neighbor(graph[2]);
     graph[2].add_neighbor(graph[3]);
     graph[3].add_neighbor(graph[4]);
+    graph[4].add_neighbor(graph[5]);
 
-    const auto result = knn_search_with_checked(query, k, graph[0]);
+    const auto& query_node = graph[5];
+
+    const auto result = knn_search_with_checked(query_node, k, graph[0]);
     ASSERT_EQ(result[0].get().point.id, 4);
     ASSERT_EQ(result[1].get().point.id, 3);
     ASSERT_EQ(result[2].get().point.id, 2);
