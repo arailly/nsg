@@ -429,7 +429,6 @@ namespace arailib {
                 disconnected_node.add_neighbor(nearest_to_disconnected);
                 nearest_to_disconnected.add_neighbor(disconnected_node);
                 all_connected = false;
-                break;
             }
             if (all_connected) break;
         }
