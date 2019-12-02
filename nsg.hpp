@@ -110,28 +110,34 @@ namespace arailib {
         candidates.emplace(distance_to_start_node, start_node);
 
         while (true) {
-            bool is_updated = false;
-            for (auto candidate_pair_ptr = candidates.begin();
-                 candidate_pair_ptr != candidates.end();
-                 ++candidate_pair_ptr) {
+            // find the first unchecked node
+            const auto& first_unchecked_pair_ptr = [&candidates, &checked]() {
+                auto candidate_pair_ptr = candidates.begin();
+                for (;candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
+                    const auto &candidate = candidate_pair_ptr->second.get();
 
-                const auto& candidate = candidate_pair_ptr->second.get();
-                if (checked[candidate.point.id]) continue;
-                checked[candidate.point.id] = true;
-                is_updated = true;
+                    if (checked[candidate.point.id]) continue;
+                    checked[candidate.point.id] = true;
 
-                for (const auto& neighbor : candidate.neighbors) {
-                    if (added[neighbor.get().point.id]) continue;
-                    added[neighbor.get().point.id] = true;
-
-                    const auto d = euclidean_distance(query, neighbor.get().point);
-                    candidates.emplace(d, neighbor.get());
+                    break;
                 }
-                // resize candidates l
-                while (candidates.size() > l) candidates.erase(--candidates.cend());
-                candidate_pair_ptr = candidates.begin();
+                return candidate_pair_ptr;
+            }();
+
+            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
+
+            const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
+
+            for (const auto& neighbor : first_unchecked_node.neighbors) {
+                if (added[neighbor.get().point.id]) continue;
+                added[neighbor.get().point.id] = true;
+
+                const auto d = euclidean_distance(query, neighbor.get().point);
+                candidates.emplace(d, neighbor.get());
             }
-            if (!is_updated) break;
+
+            // resize candidates l
+            while (candidates.size() > l) candidates.erase(--candidates.cend());
         }
 
         vector<reference_wrapper<const Node>> result;
@@ -231,30 +237,35 @@ namespace arailib {
         candidates.emplace(distance_to_start_node, start_node);
 
         while (true) {
-            bool is_updated = false;
-            for (auto candidate_pair_ptr = candidates.begin();
-                 candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
+            // find the first unchecked node
+            const auto& first_unchecked_pair_ptr = [&candidates, &checked]() {
+                auto candidate_pair_ptr = candidates.begin();
+                for (;candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
+                    const auto &candidate = candidate_pair_ptr->second.get();
 
-                const auto& candidate = candidate_pair_ptr->second.get();
-                if (checked[candidate.point.id]) continue;
-                checked[candidate.point.id] = true;
-                is_updated = true;
+                    if (checked[candidate.point.id]) continue;
+                    checked[candidate.point.id] = true;
 
-                checked_nodes.emplace(candidate_pair_ptr->first, candidate_pair_ptr->second);
-
-                for (const auto& neighbor : candidate.neighbors) {
-                    if (added[neighbor.get().point.id]) continue;
-                    added[neighbor.get().point.id] = true;
-
-                    const auto d = euclidean_distance(query_node.point, neighbor.get().point);
-                    candidates.emplace(d, neighbor.get());
+                    break;
                 }
+                return candidate_pair_ptr;
+            }();
 
-                // resize candidates l
-                while (candidates.size() > l) candidates.erase(--candidates.cend());
-                candidate_pair_ptr = candidates.begin();
+            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
+
+            const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
+            checked_nodes.emplace(first_unchecked_pair_ptr->first, first_unchecked_node);
+
+            for (const auto& neighbor : first_unchecked_node.neighbors) {
+                if (added[neighbor.get().point.id]) continue;
+                added[neighbor.get().point.id] = true;
+
+                const auto d = euclidean_distance(query_node.point, neighbor.get().point);
+                candidates.emplace(d, neighbor.get());
             }
-            if (!is_updated) break;
+
+            // resize candidates l
+            while (candidates.size() > l) candidates.erase(--candidates.cend());
         }
 
         // add query_node's kNN
@@ -418,6 +429,7 @@ namespace arailib {
                 disconnected_node.add_neighbor(nearest_to_disconnected);
                 nearest_to_disconnected.add_neighbor(disconnected_node);
                 all_connected = false;
+                break;
             }
             if (all_connected) break;
         }

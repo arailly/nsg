@@ -97,9 +97,8 @@ TEST(nsg, conflict) {
 TEST(nsg, create_nsg) {
     string data_path = "./data.csv";
     string knng_path = "./knng.csv";
-    uint m = 4;
-    uint n_sample = 8;
-    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample);
+    uint m = 4, n_sample = 8, l = 4, c = 8;
+    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample, l, c);
 
     ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
     ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
@@ -113,11 +112,11 @@ TEST(nsg, create_nsg) {
 }
 
 TEST(nsg, search) {
-    unsigned n = 10, k = 10, m = 30, n_query = 20, n_sample = 1000;
+    unsigned n = 10, k = 10, m = 30, n_query = 20, n_sample = 1000, l = 40, c = 500;
     string data_dir = "/Users/yusuke-arai/workspace/dataset/sift/sift_base/";
     string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift10k-k20.csv";
-    const auto nsg = create_nsg(data_dir, knng_path, m, n_sample, n);
+    const auto nsg = create_nsg(data_dir, knng_path, m, n_sample, n, l, c);
 
     const auto series = load_data(data_dir, n);
     const auto queries = read_csv(query_path, n_query);
