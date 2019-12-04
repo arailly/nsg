@@ -235,6 +235,7 @@ namespace arailib {
         multimap<float, reference_wrapper<const Node>> candidates, checked_nodes;
         const auto distance_to_start_node = euclidean_distance(query_node.point, start_node.point);
         candidates.emplace(distance_to_start_node, start_node);
+        checked_nodes.emplace(distance_to_start_node, start_node);
 
         while (true) {
             // find the first unchecked node
@@ -254,7 +255,6 @@ namespace arailib {
             if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
 
             const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
-            checked_nodes.emplace(first_unchecked_pair_ptr->first, first_unchecked_node);
 
             for (const auto& neighbor : first_unchecked_node.neighbors) {
                 if (added[neighbor.get().point.id]) continue;
@@ -262,6 +262,7 @@ namespace arailib {
 
                 const auto d = euclidean_distance(query_node.point, neighbor.get().point);
                 candidates.emplace(d, neighbor.get());
+                checked_nodes.emplace(d, neighbor.get());
             }
 
             // resize candidates l
@@ -424,10 +425,9 @@ namespace arailib {
             for (const auto& node : nsg) {
                 if (connected[node.point.id]) continue;
                 auto& disconnected_node = nsg[node.point.id];
-                const auto knn = knn_search(disconnected_node.point, 1, nsg.navi_node, l);
-                auto& nearest_to_disconnected = nsg[knn[0].get().point.id];
-                disconnected_node.add_neighbor(nearest_to_disconnected);
-                nearest_to_disconnected.add_neighbor(disconnected_node);
+                const auto knn_to_disconnected = knn_search(disconnected_node.point, 1, nsg.navi_node, l);
+                auto& nn_to_disconnected = nsg[knn_to_disconnected[0].get().point.id];
+                nn_to_disconnected.add_neighbor(disconnected_node);
                 all_connected = false;
             }
             if (all_connected) break;
