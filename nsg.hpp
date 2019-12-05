@@ -16,6 +16,10 @@
 #include <numeric>
 #include <chrono>
 #include <arailib.hpp>
+#include <graph.hpp>
+
+using namespace std;
+using namespace graph;
 
 namespace arailib {
     struct NSG : public Graph {
@@ -270,14 +274,15 @@ namespace arailib {
         }
 
         // add query_node's kNN
-        vector<reference_wrapper<const Node>> result;
         for (const auto& neighbor : query_node.neighbors) {
             if (checked[neighbor.get().point.id]) continue;
             checked[neighbor.get().point.id] = true;
-            result.emplace_back(neighbor.get());
+            const auto d = euclidean_distance(query_node.point, neighbor.get().point);
+            checked_nodes.emplace(d, neighbor.get());
         }
 
-        // add checked nodes
+        // add nodes into vector
+        vector<reference_wrapper<const Node>> result;
         for (const auto& node : checked_nodes) {
             result.emplace_back(node.second.get());
             if (result.size() >= c) break;
@@ -338,7 +343,7 @@ namespace arailib {
         }();
     }
 
-    bool conflict(const Node& p, const Node& v) {
+    bool conflict(const Node& v, const Node& p) {
         // true if p is in v's neighbor r's neighbor (edge pr is not detour)
         for (const auto& r : v.neighbors) {
             if (r.get().point.id == p.point.id) return true;
@@ -390,19 +395,25 @@ namespace arailib {
 
         cout << "complete: calcurate kNN" << endl;
 
-        const unsigned par = nsg.size() / 100;
+        const unsigned par = nsg.size() / 10;
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
 
             if (v.point.id % par == 0) {
-                float progress = v.point.id / par;
+                float progress = v.point.id / par * 10;
                 cout << "progress: " << progress << "%" << endl;
             }
 
             unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
-                if (p.point == v.point || conflict(p, v)) continue;
+                if (p.point == v.point || conflict(v, p)) continue;
+
+                // check distance relation among navi_node, v, p
+                const auto dist_to_v = euclidean_distance(nsg.navi_node.point, v.point);
+                const auto dist_to_p = euclidean_distance(nsg.navi_node.point, p.point);
+                if (dist_to_v > dist_to_p) continue;
+
                 v.add_neighbor(p);
                 ++n_add_edges;
                 if (n_add_edges >= m) break;
