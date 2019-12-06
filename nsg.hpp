@@ -407,21 +407,15 @@ namespace arailib {
             unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
-                if (p.point == v.point) continue;
+                if (p.point == v.point || conflict(v, p)) continue;
+                v.add_neighbor(p);
 
                 // check distance relation among navi_node, v, p
                 const auto dist_to_v = euclidean_distance(nsg.navi_node.point, v.point);
                 const auto dist_to_p = euclidean_distance(nsg.navi_node.point, p.point);
 
-                if (dist_to_v > dist_to_p) {
-                    // create edge p -> v if v is farther than p from navi node
-                    if (conflict(p, v)) continue;
-                    p.add_neighbor(v);
-                } else {
-                    // create edge v -> p if p is farther than v from navi node
-                    if (conflict(v, p)) continue;
-                    v.add_neighbor(p);
-                }
+                // add edge p -> v if v is farther than p from navi node
+                if (dist_to_v > dist_to_p && !conflict(p, v)) p.add_neighbor(v);
 
                 ++n_add_edges;
                 if (n_add_edges >= m) break;
