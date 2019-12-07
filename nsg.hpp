@@ -399,26 +399,16 @@ namespace arailib {
         for (unsigned i = 0; i < nsg.size(); i++) {
             auto& v = nsg[i];
 
+            // show progress
             if (v.point.id % par == 0) {
                 float progress = v.point.id / par * 10;
                 cout << "progress: " << progress << "%" << endl;
             }
 
-            unsigned n_add_edges = 0;
             for (const auto& p_knng : checked_node_list_along_search[i]) {
                 auto& p = nsg[p_knng.get().point.id];
-                if (p.point == v.point) continue;
-
-                const auto dist_to_v = euclidean_distance(nsg.navi_node.point, v.point);
-                const auto dist_to_p = euclidean_distance(nsg.navi_node.point, p.point);
-
-                // add edge p -> v if v is farther than p from navi node
-                if (dist_to_v > dist_to_p && !conflict(p, v)) p.add_neighbor(v);
-                // add edge v -> p if v is nearer than p from navi node
-                else if (dist_to_v < dist_to_p && !conflict(v, p)) v.add_neighbor(p);
-                else continue;
-
-                ++n_add_edges;
+                if (p.point == v.point && conflict(v, p)) continue;
+                v.add_neighbor(p);
                 if (v.get_n_neighbors() >= m) break;
             }
         }
