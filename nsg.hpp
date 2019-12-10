@@ -216,7 +216,7 @@ struct NSG {
         for (const auto& neighbor : query_node.neighbors) {
             if (checked[neighbor.get().point.id]) continue;
             checked[neighbor.get().point.id] = true;
-            const auto d = euclidean_distance(query_node.point, neighbor.get().point);
+            const auto d = df(query_node.point, neighbor.get().point);
             checked_nodes.emplace(d, neighbor.get());
         }
 
