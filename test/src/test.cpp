@@ -27,26 +27,27 @@ Series scan_knn_search(const Point& query, const uint k, const Series& series) {
 }
 
 TEST(graph, knn_search_with_checked) {
-    const auto query = Point(5, {6});
-    const auto k = 3;
-
     const auto p0 = Point(0, {1});
     const auto p1 = Point(1, {2});
     const auto p2 = Point(2, {3});
     const auto p3 = Point(3, {4});
     const auto p4 = Point(4, {5});
+    const auto p5 = Point(5, {6});
 
-    auto series = Series{p0, p1, p2, p3, p4, query};
-    auto graph = Graph(series);
-    graph[0].add_neighbor(graph[1]);
-    graph[1].add_neighbor(graph[2]);
-    graph[2].add_neighbor(graph[3]);
-    graph[3].add_neighbor(graph[4]);
-    graph[4].add_neighbor(graph[5]);
+    auto series = Series{p0, p1, p2, p3, p4, p5};
+    auto nsg = NSG();
+    nsg.init_nodes(series);
+    nsg.navi_node = &nsg.nodes[0];
+    nsg.nodes[0].add_neighbor(nsg.nodes[1]);
+    nsg.nodes[1].add_neighbor(nsg.nodes[2]);
+    nsg.nodes[2].add_neighbor(nsg.nodes[3]);
+    nsg.nodes[3].add_neighbor(nsg.nodes[4]);
+    nsg.nodes[4].add_neighbor(nsg.nodes[5]);
+    nsg.nodes[5].add_neighbor(nsg.nodes[4]);
 
-    const auto& query_node = graph[5];
+    const auto& query_node = nsg.nodes[5];
 
-    const auto result = knn_search_with_checked(query_node, k, graph[0]);
+    const auto result = nsg.knn_search_with_checked(query_node);
     ASSERT_EQ(result[0].get().point.id, 4);
     ASSERT_EQ(result[1].get().point.id, 3);
     ASSERT_EQ(result[2].get().point.id, 2);
@@ -64,9 +65,10 @@ TEST(nsg, find_navi_node_id) {
     const uint n_sample = 5;
 
     auto series = Series{p0, p1, p2, p3, p4};
-    auto graph = Graph(series);
+    auto nsg = NSG();
+    nsg.init_nodes(series);
 
-    const auto navi_node_id = find_navi_node_id(graph, n_sample);
+    const auto navi_node_id = nsg.find_navi_node_id(n_sample);
     ASSERT_EQ(navi_node_id, 2);
 }
 
@@ -77,38 +79,43 @@ TEST(nsg, conflict) {
     const auto p3 = Point(3, {1, 2});
 
     auto series = Series{p0, p1, p2, p3};
-    auto graph1 = Graph(series);
-    graph1[0].add_neighbor(graph1[1]);
-    graph1[1].add_neighbor(graph1[0]);
-    graph1[1].add_neighbor(graph1[2]);
-    graph1[2].add_neighbor(graph1[1]);
+    auto series_copy = series;
 
-    ASSERT_TRUE(conflict(graph1[0], graph1[2]));
+    auto nsg1 = NSG();
+    nsg1.init_nodes(series);
+    nsg1.nodes[0].add_neighbor(nsg1.nodes[1]);
+    nsg1.nodes[1].add_neighbor(nsg1.nodes[0]);
+    nsg1.nodes[1].add_neighbor(nsg1.nodes[2]);
+    nsg1.nodes[2].add_neighbor(nsg1.nodes[1]);
 
-    auto graph2 = Graph(series);
-    graph2[0].add_neighbor(graph1[2]);
-    graph2[2].add_neighbor(graph1[0]);
-    graph2[2].add_neighbor(graph1[3]);
-    graph2[3].add_neighbor(graph1[2]);
+    ASSERT_TRUE(nsg1.conflict(nsg1.nodes[0], nsg1.nodes[2]));
 
-    ASSERT_FALSE(conflict(graph2[0], graph2[3]));
+    auto nsg2 = NSG();
+    nsg2.init_nodes(series_copy);
+    nsg2.nodes[0].add_neighbor(nsg2.nodes[2]);
+    nsg2.nodes[2].add_neighbor(nsg2.nodes[0]);
+    nsg2.nodes[2].add_neighbor(nsg2.nodes[3]);
+    nsg2.nodes[3].add_neighbor(nsg2.nodes[2]);
+
+    ASSERT_FALSE(nsg2.conflict(nsg2.nodes[0], nsg2.nodes[3]));
 }
 
 TEST(nsg, create_nsg) {
     string data_path = "./data.csv";
     string knng_path = "./knng.csv";
-    uint m = 4, n_sample = 8, l = 4, c = 8;
-    const auto nsg = create_nsg(data_path, knng_path, m, m, n_sample, l, c);
+    uint n = 8, m = 4, n_sample = 8, l = 4, c = 8;
+    auto nsg = NSG();
+    nsg.build(data_path, knng_path, m, n_sample, n, l, c);
 
-    ASSERT_EQ(nsg[0].neighbors[0].get().point.id, 1);
-    ASSERT_EQ(nsg[0].neighbors[1].get().point.id, 2);
-    ASSERT_EQ(nsg[0].neighbors[2].get().point.id, 4);
-    ASSERT_EQ(nsg[0].neighbors[3].get().point.id, 3);
+    ASSERT_EQ(nsg.nodes[0].neighbors[0].get().point.id, 1);
+    ASSERT_EQ(nsg.nodes[0].neighbors[1].get().point.id, 2);
+    ASSERT_EQ(nsg.nodes[0].neighbors[2].get().point.id, 4);
+    ASSERT_EQ(nsg.nodes[0].neighbors[3].get().point.id, 3);
 
-    ASSERT_EQ(nsg[4].neighbors[0].get().point.id, 0);
-    ASSERT_EQ(nsg[4].neighbors[1].get().point.id, 1);
-    ASSERT_EQ(nsg[4].neighbors[2].get().point.id, 2);
-    ASSERT_EQ(nsg[4].neighbors[3].get().point.id, 6);
+    ASSERT_EQ(nsg.nodes[4].neighbors[0].get().point.id, 1);
+    ASSERT_EQ(nsg.nodes[4].neighbors[1].get().point.id, 2);
+    ASSERT_EQ(nsg.nodes[4].neighbors[2].get().point.id, 6);
+    ASSERT_EQ(nsg.nodes[4].neighbors[3].get().point.id, 7);
 }
 
 TEST(nsg, search) {
@@ -116,7 +123,8 @@ TEST(nsg, search) {
     string data_dir = "/Users/yusuke-arai/workspace/dataset/sift/sift_base/";
     string query_path = "/Users/yusuke-arai/workspace/dataset/sift/sift_query.csv";
     string knng_path = "/Users/yusuke-arai/workspace/index/sift10k-k20.csv";
-    const auto nsg = create_nsg(data_dir, knng_path, m, n_sample, n, l, c);
+    auto nsg = NSG();
+    nsg.build(data_dir, knng_path, m, n_sample, n, l, c);
 
     const auto series = load_data(data_dir, n);
     const auto queries = read_csv(query_path, n_query);
@@ -126,7 +134,7 @@ TEST(nsg, search) {
         const auto scan_result = scan_knn_search(query, k, series);
 
         // calcurate result by nsg
-        const auto result = knn_search(query, k, nsg.navi_node, 40);
+        const auto result = nsg.knn_search(query, k, 40);
 
         ASSERT_EQ(result.size(), k);
         float recall = 0;
