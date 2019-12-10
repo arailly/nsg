@@ -28,8 +28,8 @@ struct NSG {
     DistanceFunction df;
     mt19937 engine;
 
-    NSG(DistanceFunction df = euclidean_distance, unsigned random_state = 42) :
-        df(df), engine(mt19937(random_state)) {}
+    NSG(const string& df = "euclidean", unsigned random_state = 42) :
+        df(select_distance(df)), engine(mt19937(random_state)) {}
 
     void init_nodes(Series& series) {
         for (auto& point : series) nodes.emplace_back(point);

@@ -15,8 +15,9 @@ int main() {
     const unsigned l = config["l"];
     const unsigned c = config["c"];
     const unsigned n_sample = config["n_sample"];
+    const string df = config["distance"];
 
-    auto nsg = NSG();
+    auto nsg = NSG(df);
     nsg.build(data_path, knng_path, m, n_sample, n, l, c);
     nsg.save(save_path);
 }
