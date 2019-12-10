@@ -160,16 +160,16 @@ struct NSG {
     }
 
     vector<reference_wrapper<const Node>>
-    knn_search_with_checked(const Node& query_node, const unsigned l = 40,
+    knn_search_with_checked(const Node& query_node, const Node& start_node, const unsigned l = 40,
                             const unsigned c = 500) {
 
         unordered_map<size_t, bool> checked, added;
-        added[navi_node->point.id] = true;
+        added[start_node.point.id] = true;
 
         multimap<float, reference_wrapper<const Node>> candidates, checked_nodes;
-        const auto dist_to_start_node = df(query_node.point, navi_node->point);
-        candidates.emplace(dist_to_start_node, *navi_node);
-        checked_nodes.emplace(dist_to_start_node, *navi_node);
+        const auto dist_to_start_node = df(query_node.point, start_node.point);
+        candidates.emplace(dist_to_start_node, start_node);
+        checked_nodes.emplace(dist_to_start_node, start_node);
 
         while (true) {
             // find the first unchecked node
@@ -199,14 +199,6 @@ struct NSG {
                 candidates.emplace(dist, neighbor.get());
                 checked_nodes.emplace(dist, neighbor.get());
             }
-
-            auto a = [&]() {
-                vector<Node> v;
-                for (const auto& c : candidates) v.push_back(c.second);
-                return v;
-
-            }();
-            auto b = 1;
 
             // resize candidates l
             while (candidates.size() > l) candidates.erase(--candidates.cend());
@@ -329,7 +321,7 @@ struct NSG {
 #pragma omp parallel for
             for (unsigned i = 0; i < knn_graph.size(); i++) {
                 const auto& v = knn_graph[i];
-                const auto nodes = knn_search_with_checked(v, l, c);
+                const auto nodes = knn_search_with_checked(v, navi_node_knng, l, c);
                 node_list[i] = nodes;
             }
             return node_list;

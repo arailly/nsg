@@ -47,7 +47,7 @@ TEST(graph, knn_search_with_checked) {
 
     const auto& query_node = nsg.nodes[5];
 
-    const auto result = nsg.knn_search_with_checked(query_node);
+    const auto result = nsg.knn_search_with_checked(query_node, *nsg.navi_node);
     ASSERT_EQ(result[0].get().point.id, 4);
     ASSERT_EQ(result[1].get().point.id, 3);
     ASSERT_EQ(result[2].get().point.id, 2);
@@ -127,6 +127,39 @@ TEST(nsg, search) {
     nsg.build(data_dir, knng_path, m, n_sample, n, l, c);
 
     const auto series = load_data(data_dir, n);
+    const auto queries = read_csv(query_path, n_query);
+
+    for (const auto& query : queries) {
+        // calcurate exact result by scan
+        const auto scan_result = scan_knn_search(query, k, series);
+
+        // calcurate result by nsg
+        const auto result = nsg.knn_search(query, k, 40);
+
+        ASSERT_EQ(result.size(), k);
+        float recall = 0;
+        for (const auto& exact : scan_result) {
+            for (const auto& approx : result) {
+                recall += (exact.id == approx.get().point.id);
+            }
+        }
+        recall /= k;
+
+        ASSERT_GE(recall, 0);
+    }
+}
+
+TEST(nsg, angular) {
+    unsigned n = 1000, k = 10, m = 30, n_query = 20, n_sample = 1000, l = 40, c = 500;
+    string data_dir = "/Users/yusuke-arai/workspace/dataset/glove/twitter/d100/data1m/";
+    string query_path = "/Users/yusuke-arai/workspace/dataset/glove/twitter/d100/query10k.csv";
+    string knng_path = "/Users/yusuke-arai/workspace/index/glove1m-k50/";
+    const auto series = load_data(data_dir, n);
+    auto series_copy = series;
+
+    auto nsg = NSG("angular");
+    nsg.build(data_dir, knng_path, m, n_sample, n, l, c);
+
     const auto queries = read_csv(query_path, n_query);
 
     for (const auto& query : queries) {
