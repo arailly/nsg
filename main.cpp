@@ -16,6 +16,7 @@ int main() {
     const unsigned c = config["c"];
     const unsigned n_sample = config["n_sample"];
 
-    const auto nsg = create_nsg(data_path, knng_path, m, n_sample, n, l, c);
-    write_graph(save_path, nsg);
+    auto nsg = NSG();
+    nsg.build(data_path, knng_path, m, n_sample, n, l, c);
+    nsg.save(save_path);
 }
