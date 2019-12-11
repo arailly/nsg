@@ -6,7 +6,7 @@ using namespace std;
 using namespace arailib;
 
 int main() {
-    const auto config = read_config("./angular-config.json");
+    const auto config = read_config();
     const string data_path = config["data_path"];
     const string knng_path = config["knng_path"];
     const string save_path = config["save_path"];
