@@ -186,8 +186,10 @@ struct NSG {
                 return candidate_pair_ptr;
             }();
 
-            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l ||
-                first_unchecked_pair_ptr == candidates.end()) break;
+//            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l ||
+//                first_unchecked_pair_ptr == candidates.end()) break;
+
+            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
 
             const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
 
