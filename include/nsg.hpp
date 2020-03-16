@@ -29,6 +29,36 @@ struct SearchResult {
     unsigned long n_distinct_node_access = 0;
 };
 
+struct SearchResults {
+    vector<SearchResult> results;
+    void push_back(const SearchResult& result) { results.push_back(result); }
+
+    void save(const string& log_path, const string& result_path) {
+        ofstream log_ofs(log_path);
+        string line = "time,n_node_access,n_distinct_node_access";
+        log_ofs << line << endl;
+
+        ofstream result_ofs(result_path);
+        line = "query_id,data_id";
+        result_ofs << line << endl;
+
+        int query_id = 0;
+        for (const auto& result : results) {
+            line = to_string(result.time) + "," +
+                   to_string(result.n_node_access) + "," +
+                   to_string(result.n_distinct_node_access);
+            log_ofs << line << endl;
+
+            for (const auto& data : result.result) {
+                line = to_string(query_id) + "," + to_string(data.id);
+                result_ofs << line << endl;
+            }
+
+            query_id++;
+        }
+    }
+};
+
 struct NSG {
     vector<Node> nodes;
     Node* navi_node;
@@ -121,7 +151,7 @@ struct NSG {
     SearchResult knn_search(const Point query, const unsigned k, const unsigned l) {
         auto result = SearchResult();
         const auto start_time = get_now();
-        
+
         unordered_map<size_t, bool> checked, added;
         added[navi_node->point.id] = true;
 
@@ -147,10 +177,10 @@ struct NSG {
 
             for (const auto& neighbor : first_unchecked_node.neighbors) {
                 result.n_node_access++;
-                
+
                 if (added[neighbor.get().point.id]) continue;
                 added[neighbor.get().point.id] = true;
-                
+
                 result.n_distinct_node_access++;
 
                 const auto dist = df(query, neighbor.get().point);
@@ -165,7 +195,7 @@ struct NSG {
             result.result.emplace_back(c.second.get().point);
             if (result.result.size() >= k) break;
         }
-        
+
         const auto end_time = get_now();
         result.time = get_duration(start_time, end_time);
         return result;

@@ -184,32 +184,25 @@ TEST(nsg, angular) {
 }
 
 TEST(nsg, knn_search_result) {
-    unsigned n = 1000, k = 10, m = 30, n_query = 10000, n_sample = 1000, l = 40, c = 500;
-    string data_dir = "/home/arai/workspace/dataset/sift/sift_base/";
+    unsigned n = 1000, k = 5, n_query = 10000, l = 30;
+    string data_path = "/home/arai/workspace/dataset/sift/sift_base/";
     string query_path = "/home/arai/workspace/dataset/sift/sift_query.csv";
-    string knng_path = "/home/arai/workspace/index/aknng/sift/sift10k-k20.csv";
-    auto nsg = NSG();
-    nsg.build(data_dir, knng_path, m, n_sample, n, l, c);
+    string nsg_path = "/home/arai/workspace/index/nsg/sift/data1m-m50/";
 
-    const auto series = load_data(data_dir, n);
+    auto nsg = NSG();
+    nsg.load(data_path, nsg_path, n);
+
     const auto queries = read_csv(query_path, n_query);
 
+    SearchResults results;
     for (const auto& query : queries) {
-        // calculate exact result by scan
-        const auto scan_result = scan_knn_search(query, k, series);
-
-        // calculate result by nsg
-        const auto result = nsg.knn_search(query, k, 40).result;
-
-        ASSERT_EQ(result.size(), k);
-        float recall = 0;
-        for (const auto& exact : scan_result) {
-            for (const auto& approx : result) {
-                recall += (exact.id == approx.id);
-            }
-        }
-        recall /= k;
-
-        ASSERT_GE(recall, 0);
+        const auto result = nsg.knn_search(query, k, l);
+        results.push_back(result);
     }
+
+    const string log_path = "/home/arai/workspace/result/knn-search/nsg/sift/data1m/k5/"
+                            "log-m50-l40.csv";
+    const string result_path = "/home/arai/workspace/result/knn-search/nsg/sift/data1m/k5/"
+                               "result-m50-l40.csv";
+    results.save(log_path, result_path);
 }
