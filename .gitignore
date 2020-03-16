@@ -1,4 +1,8 @@
 .idea/
 cmake-build-debug/
+cmake-build-debug-remote/
 test/lib/
 nsg
+arailib.hpp
+graph.hpp
+json.hpp
