@@ -22,6 +22,13 @@ using namespace std;
 using namespace arailib;
 using namespace graph;
 
+struct SearchResult {
+    time_t time = 0;
+    Series result;
+    unsigned long n_node_access = 0;
+    unsigned long n_distinct_node_access = 0;
+};
+
 struct NSG {
     vector<Node> nodes;
     Node* navi_node;
@@ -111,8 +118,10 @@ struct NSG {
         }
     }
 
-    vector<reference_wrapper<const Node>>
-    knn_search(const Point query, const unsigned k, const unsigned l) {
+    SearchResult knn_search(const Point query, const unsigned k, const unsigned l) {
+        auto result = SearchResult();
+        const auto start_time = get_now();
+        
         unordered_map<size_t, bool> checked, added;
         added[navi_node->point.id] = true;
 
@@ -124,13 +133,9 @@ struct NSG {
             // find the first unchecked node
             const auto& first_unchecked_pair_ptr = [&candidates, &checked]() {
                 auto candidate_pair_ptr = candidates.begin();
-                for (;candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
+                for (; candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
                     const auto &candidate = candidate_pair_ptr->second.get();
-
-                    if (checked[candidate.point.id]) continue;
-                    checked[candidate.point.id] = true;
-
-                    break;
+                    if (!checked[candidate.point.id]) break;
                 }
                 return candidate_pair_ptr;
             }();
@@ -138,10 +143,15 @@ struct NSG {
             if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
 
             const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
+            checked[first_unchecked_node.point.id] = true;
 
             for (const auto& neighbor : first_unchecked_node.neighbors) {
+                result.n_node_access++;
+                
                 if (added[neighbor.get().point.id]) continue;
                 added[neighbor.get().point.id] = true;
+                
+                result.n_distinct_node_access++;
 
                 const auto dist = df(query, neighbor.get().point);
                 candidates.emplace(dist, neighbor.get());
@@ -151,11 +161,13 @@ struct NSG {
             while (candidates.size() > l) candidates.erase(--candidates.cend());
         }
 
-        vector<reference_wrapper<const Node>> result;
         for (const auto& c : candidates) {
-            result.emplace_back(c.second.get());
-            if (result.size() >= k) break;
+            result.result.emplace_back(c.second.get().point);
+            if (result.result.size() >= k) break;
         }
+        
+        const auto end_time = get_now();
+        result.time = get_duration(start_time, end_time);
         return result;
     }
 
@@ -365,8 +377,8 @@ struct NSG {
             for (const auto& node : nodes) {
                 if (connected[node.point.id]) continue;
                 auto& disconnected_node = nodes[node.point.id];
-                const auto knn_to_disconnected = knn_search(disconnected_node.point, 1, l);
-                auto& nn_to_disconnected = nodes[knn_to_disconnected[0].get().point.id];
+                const auto knn_to_disconnected = knn_search(disconnected_node.point, 1, l).result;
+                auto& nn_to_disconnected = nodes[knn_to_disconnected[0].id];
                 nn_to_disconnected.add_neighbor(disconnected_node);
                 all_connected = false;
             }
