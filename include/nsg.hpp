@@ -94,8 +94,7 @@ struct NSG {
     DistanceFunction<> calc_dist;
     mt19937 engine;
 
-    NSG(int m, const string& dist_kind = "euclidean",
-        int l_construct = 40, int c_construct = 500) :
+    NSG(int m, int l_construct = 40, int c_construct = 500, string dist_kind = "euclidean") :
             l_construct(l_construct), c_construct(c_construct),
             dist_kind(dist_kind), calc_dist(select_distance(dist_kind)),
             engine(mt19937(42)) {}
@@ -270,7 +269,7 @@ struct NSG {
             // sort and resize candidates l
             sort(candidates.begin(), candidates.end(),
                  [](const auto& n1, const auto& n2) { return n1.dist < n2.dist; });
-            candidates.resize(l);
+            if (candidates.size() > l) candidates.resize(l);
         }
 
         for (const auto& c : candidates) {
@@ -284,7 +283,7 @@ struct NSG {
         return result;
     }
 
-    auto calc_neighbor_candidates(const Node& query_node, int start_node_id) {
+    auto calc_neighbor_candidates(const Node& query_node) {
         Neighbors result;
 
         vector<bool> added(nodes.size());
@@ -301,7 +300,7 @@ struct NSG {
         auto search_result = knn_search(query_node.data, l_construct, l_construct);
         auto& all_candidates = search_result.all_candidates;
         sort_neighbors(all_candidates);
-        all_candidates.resize(c_construct);
+        if (all_candidates.size() > c_construct) all_candidates.resize(c_construct);
 
         for (const auto& candidate : all_candidates) {
             if (added[candidate.id]) continue;
@@ -401,7 +400,7 @@ struct NSG {
 #pragma omp parallel for
         for (int node_id = 0; node_id < nodes.size(); ++node_id) {
             const auto& node = nodes[node_id];
-            neighbor_candidate_list[node_id] = calc_neighbor_candidates(node, navi_node_id);
+            neighbor_candidate_list[node_id] = calc_neighbor_candidates(node);
         }
 
         cout << "complete: calculate neighbor candidates" << endl;
