@@ -47,7 +47,7 @@ TEST(graph, knn_search_with_checked) {
 
     const auto& query_node = nsg.nodes[5];
 
-    const auto result = nsg.knn_search_with_checked(query_node, *nsg.navi_node);
+    const auto result = nsg.calc_neighbor_candidates(query_node, *nsg.navi_node);
     ASSERT_EQ(result[0].get().point.id, 4);
     ASSERT_EQ(result[1].get().point.id, 3);
     ASSERT_EQ(result[2].get().point.id, 2);

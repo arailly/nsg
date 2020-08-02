@@ -5,28 +5,23 @@
 #ifndef NSG_NSG_HPP
 #define NSG_NSG_HPP
 
-#include <vector>
-#include <iostream>
-#include <set>
 #include <map>
-#include <deque>
-#include <string>
-#include <random>
-#include <cmath>
-#include <numeric>
-#include <chrono>
+#include <unordered_map>
 #include <arailib.hpp>
-#include <graph.hpp>
 
 using namespace std;
 using namespace arailib;
-using namespace graph;
 
 struct SearchResult {
+    vector<Neighbor> result;
     time_t time = 0;
-    Series result;
     unsigned long n_node_access = 0;
-    unsigned long n_distinct_node_access = 0;
+    unsigned long n_dist_calc = 0;
+    unsigned long n_hop = 0;
+    double dist_from_navi = 0;
+    double recall = 0;
+
+    Neighbors all_candidates;
 };
 
 struct SearchResults {
@@ -35,22 +30,27 @@ struct SearchResults {
 
     void save(const string& log_path, const string& result_path) {
         ofstream log_ofs(log_path);
-        string line = "time,n_node_access,n_distinct_node_access";
+        string line = "time,n_node_access,n_dist_calc,n_hop,dist_from_navi,recall";
         log_ofs << line << endl;
 
         ofstream result_ofs(result_path);
-        line = "query_id,data_id";
+        line = "query_id,data_id,dist";
         result_ofs << line << endl;
 
         int query_id = 0;
         for (const auto& result : results) {
             line = to_string(result.time) + "," +
                    to_string(result.n_node_access) + "," +
-                   to_string(result.n_distinct_node_access);
+                   to_string(result.n_dist_calc) + "," +
+                   to_string(result.n_hop) + "," +
+                   to_string(result.dist_from_navi) + "," +
+                   to_string(result.recall);
             log_ofs << line << endl;
 
-            for (const auto& data : result.result) {
-                line = to_string(query_id) + "," + to_string(data.id);
+            for (const auto& neighbor : result.result) {
+                line = to_string(query_id) + "," +
+                       to_string(neighbor.id) + "," +
+                       to_string(neighbor.dist);
                 result_ofs << line << endl;
             }
 
@@ -59,20 +59,52 @@ struct SearchResults {
     }
 };
 
-struct NSG {
-    vector<Node> nodes;
-    Node* navi_node;
-    DistanceFunction df;
-    mt19937 engine;
+struct Node {
+    int id;
+    Data<> data;
+    Neighbors neighbors;
+    unordered_map<size_t, bool> added;
 
-    NSG(const string& df = "euclidean", unsigned random_state = 42) :
-        df(select_distance(df)), engine(mt19937(random_state)) {}
+    void init() { added[id] = true; }
+    Node() : data(Data<>(0, {0})) { init(); }
+    Node(const Data<>& data) : id(data.id), data(data) { init(); }
 
-    void init_nodes(Series& series) {
-        for (auto& point : series) nodes.emplace_back(point);
+    void add_neighbor(double dist, int neighbor_id) {
+        if (added.find(neighbor_id) != added.end()) return;
+        added[neighbor_id] = true;
+        neighbors.emplace_back(dist, neighbor_id);
     }
 
-    void load(Series& series, const string& graph_path, int n) {
+    void clear_neighbor() {
+        added.clear();
+        neighbors.clear();
+        added[id] = true;
+    }
+};
+
+struct NSG {
+    vector<Node> nodes;
+    int navi_node_id;
+
+    int m;
+    int l_construct;
+    int c_construct;
+
+    string dist_kind;
+    DistanceFunction<> calc_dist;
+    mt19937 engine;
+
+    NSG(int m, const string& dist_kind = "euclidean",
+        int l_construct = 40, int c_construct = 500) :
+            l_construct(l_construct), c_construct(c_construct),
+            dist_kind(dist_kind), calc_dist(select_distance(dist_kind)),
+            engine(mt19937(42)) {}
+
+    void init_nodes(const Dataset<>& series) {
+        for (const auto& point : series) nodes.emplace_back(point);
+    }
+
+    void load(const Dataset<>& series, const string& graph_path, int n) {
         init_nodes(series);
         // csv
         if (is_csv(graph_path)) {
@@ -80,12 +112,11 @@ struct NSG {
             if (!ifs) throw runtime_error("Can't open file!");
 
             string line; getline(ifs, line);
-            unsigned navi_node_id = stoi(line);
-            navi_node = &nodes[navi_node_id];
+            navi_node_id = stoi(line);
 
             while (getline(ifs, line)) {
                 const auto&& ids = split<size_t>(line);
-                nodes[ids[0]].add_neighbor(nodes[ids[1]]);
+                nodes[ids[0]].add_neighbor(0, ids[1]);
             }
             return;
         }
@@ -96,9 +127,7 @@ struct NSG {
         if (!navi_node_ifs) throw runtime_error("Can't open file!");
 
         string navi_node_line; getline(navi_node_ifs, navi_node_line);
-        unsigned navi_node_id = stoi(navi_node_line);
-
-        navi_node = &nodes[navi_node_id];
+        navi_node_id = stoi(navi_node_line);
 
 #pragma omp parallel for
         for (int i = 0; i < n; i++) {
@@ -107,7 +136,7 @@ struct NSG {
             string line;
             while (getline(ifs, line)) {
                 const auto ids = split<size_t>(line);
-                nodes[ids[0]].add_neighbor(nodes[ids[1]]);
+                nodes[ids[0]].add_neighbor(0, ids[1]);
             }
         }
     }
@@ -125,19 +154,64 @@ struct NSG {
         load(series, graph_path, n);
     }
 
+    void load_aknng(const Dataset<>& series, const string& graph_path, int n) {
+        init_nodes(series);
+
+        // csv file
+        if (is_csv(graph_path)) {
+            ifstream ifs(graph_path);
+            if (!ifs) {
+                const string message = "Can't open file!: " + graph_path;
+                throw runtime_error(message);
+            }
+
+            string line;
+            while (getline(ifs, line)) {
+                const auto row = split<double>(line);
+                auto& node = nodes[row[0]];
+                node.add_neighbor(row[2], row[1]);
+            }
+            return;
+        }
+
+        // dir
+#pragma omp parallel for
+        for (int i = 0; i < n; i++) {
+            const string path = graph_path + "/" + to_string(i) + ".csv";
+            ifstream ifs(path);
+
+            if (!ifs) {
+                const string message = "Can't open file!: " + path;
+                throw runtime_error(message);
+            }
+
+            string line;
+            while (getline(ifs, line)) {
+                const auto row = split<double>(line);
+                auto& node = nodes[row[0]];
+                node.add_neighbor(row[2], row[1]);
+            }
+        }
+    }
+
+    void load_aknng(const string& data_path, const string& graph_path, int n) {
+        auto series = load_data(data_path, n);
+        load(series, graph_path, n);
+    }
+
     void save(const string& save_dir) {
         const string navi_node_path = save_dir + "/navi-node.csv";
         ofstream navi_node_ofs(navi_node_path);
         // write navigating node
-        navi_node_ofs << navi_node->point.id << endl;
+        navi_node_ofs << navi_node_id << endl;
 
         // write connection
         vector<string> lines(ceil(nodes.size() / 1000.0));
         for (const auto& node : nodes) {
-            const unsigned line_i = node.point.id / 1000;
+            const unsigned line_i = node.id / 1000;
             for (const auto& neighbor : node.neighbors) {
-                lines[line_i] += to_string(node.point.id) + ',' +
-                                 to_string(neighbor.get().point.id) + '\n';
+                lines[line_i] += to_string(node.id) + ',' +
+                                 to_string(neighbor.id) + '\n';
             }
         }
 
@@ -148,126 +222,97 @@ struct NSG {
         }
     }
 
-    SearchResult knn_search(const Point query, const unsigned k, const unsigned l) {
+    auto knn_search(const Data<>& query, int k, int l) {
         auto result = SearchResult();
         const auto start_time = get_now();
 
-        unordered_map<size_t, bool> checked, added;
-        added[navi_node->point.id] = true;
+        vector<bool> checked(nodes.size()), added(nodes.size());
+        added[navi_node_id];
 
-        multimap<float, reference_wrapper<const Node>> candidates;
-        const auto dist_to_start_node = df(query, navi_node->point);
-        candidates.emplace(dist_to_start_node, *navi_node);
+        vector<Neighbor> candidates;
+        const auto& navi_node = nodes[navi_node_id];
+        const auto dist_from_navi = calc_dist(query, navi_node.data);
+        candidates.emplace_back(dist_from_navi, navi_node_id);
+
+        result.dist_from_navi = dist_from_navi;
 
         while (true) {
             // find the first unchecked node
-            const auto& first_unchecked_pair_ptr = [&candidates, &checked]() {
-                auto candidate_pair_ptr = candidates.begin();
-                for (; candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
-                    const auto &candidate = candidate_pair_ptr->second.get();
-                    if (!checked[candidate.point.id]) break;
-                }
-                return candidate_pair_ptr;
-            }();
+            int first_unchecked_index = 0;
+            for (const auto candidate : candidates) {
+                if (!checked[candidate.id]) break;
+                ++first_unchecked_index;
+            }
 
-            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
+            // checked all candidates
+            if (first_unchecked_index >= l) break;
 
-            const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
-            checked[first_unchecked_node.point.id] = true;
+            ++result.n_hop;
+
+            const auto first_unchecked_node_id = candidates[first_unchecked_index].id;
+            checked[first_unchecked_node_id] = true;
+            const auto& first_unchecked_node = nodes[first_unchecked_node_id];
 
             for (const auto& neighbor : first_unchecked_node.neighbors) {
                 result.n_node_access++;
 
-                if (added[neighbor.get().point.id]) continue;
-                added[neighbor.get().point.id] = true;
+                if (added[neighbor.id]) continue;
+                added[neighbor.id] = true;
 
-                result.n_distinct_node_access++;
+                result.n_dist_calc++;
 
-                const auto dist = df(query, neighbor.get().point);
-                candidates.emplace(dist, neighbor.get());
+                const auto& neighbor_node = nodes[neighbor.id];
+                const auto dist = calc_dist(query, neighbor_node.data);
+                candidates.emplace_back(dist, neighbor.id);
+                result.all_candidates.emplace_back(dist, neighbor.id);
             }
 
-            // resize candidates l
-            while (candidates.size() > l) candidates.erase(--candidates.cend());
+            // sort and resize candidates l
+            sort(candidates.begin(), candidates.end(),
+                 [](const auto& n1, const auto& n2) { return n1.dist < n2.dist; });
+            candidates.resize(l);
         }
 
         for (const auto& c : candidates) {
-            result.result.emplace_back(c.second.get().point);
+            result.result.emplace_back(c);
             if (result.result.size() >= k) break;
         }
 
         const auto end_time = get_now();
         result.time = get_duration(start_time, end_time);
+
         return result;
     }
 
-    vector<reference_wrapper<const Node>>
-    knn_search_with_checked(const Node& query_node, const Node& start_node, const unsigned l = 40,
-                            const unsigned c = 500) {
+    auto calc_neighbor_candidates(const Node& query_node, int start_node_id) {
+        Neighbors result;
 
-        unordered_map<size_t, bool> checked, added;
-        added[start_node.point.id] = true;
+        vector<bool> added(nodes.size());
+        added[query_node.id] = true;
 
-        multimap<float, reference_wrapper<const Node>> candidates, checked_nodes;
-        const auto dist_to_start_node = df(query_node.point, start_node.point);
-        candidates.emplace(dist_to_start_node, start_node);
-        checked_nodes.emplace(dist_to_start_node, start_node);
-
-        while (true) {
-            // find the first unchecked node
-            const auto& first_unchecked_pair_ptr = [&]() {
-                auto candidate_pair_ptr = candidates.begin();
-                for (;candidate_pair_ptr != candidates.end(); ++candidate_pair_ptr) {
-                    const auto &candidate = candidate_pair_ptr->second.get();
-
-                    if (checked[candidate.point.id]) continue;
-                    checked[candidate.point.id] = true;
-
-                    break;
-                }
-                return candidate_pair_ptr;
-            }();
-
-//            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l ||
-//                first_unchecked_pair_ptr == candidates.end()) break;
-
-            if (distance(candidates.begin(), first_unchecked_pair_ptr) >= l) break;
-
-            const auto& first_unchecked_node = first_unchecked_pair_ptr->second.get();
-
-            for (const auto& neighbor : first_unchecked_node.neighbors) {
-                if (added[neighbor.get().point.id]) continue;
-                added[neighbor.get().point.id] = true;
-
-                const auto dist = df(query_node.point, neighbor.get().point);
-                candidates.emplace(dist, neighbor.get());
-                checked_nodes.emplace(dist, neighbor.get());
-            }
-
-            // resize candidates l
-            while (candidates.size() > l) candidates.erase(--candidates.cend());
-        }
-
-        // add query_node's kNN
+        // add query_node's neighbors
         for (const auto& neighbor : query_node.neighbors) {
-            if (checked[neighbor.get().point.id]) continue;
-            checked[neighbor.get().point.id] = true;
-            const auto d = df(query_node.point, neighbor.get().point);
-            checked_nodes.emplace(d, neighbor.get());
+            if (added[neighbor.id]) continue;
+            added[neighbor.id] = true;
+            result.emplace_back(neighbor);
         }
 
-        // add nodes into vector
-        vector<reference_wrapper<const Node>> result;
-        for (const auto& node : checked_nodes) {
-            if (node.second.get().point == query_node.point) continue;
-            result.emplace_back(node.second.get());
-            if (result.size() >= c) break;
+        // add checked nodes through search into vector
+        auto search_result = knn_search(query_node.data, l_construct, l_construct);
+        auto& all_candidates = search_result.all_candidates;
+        sort_neighbors(all_candidates);
+        all_candidates.resize(c_construct);
+
+        for (const auto& candidate : all_candidates) {
+            if (added[candidate.id]) continue;
+            added[candidate.id] = true;
+            result.emplace_back(candidate);
         }
 
         return result;
     }
 
-    size_t find_navi_node_id(uint n_sample) {
+    auto find_navi_node_id(uint n_sample) {
         uniform_int_distribution<size_t> distribution(0, nodes.size() - 1);
 
         // sampling
@@ -294,8 +339,8 @@ struct NSG {
                 const auto& node1 = sampled[i];
                 float distance_sum = 0;
                 for (const auto& node2 : sampled) {
-                    if (node1.get().point == node2.get().point) continue;
-                    const auto dist = df(node1.get().point, node2.get().point);
+                    if (node1.get().data == node2.get().data) continue;
+                    const auto dist = calc_dist(node1.get().data, node2.get().data);
                     distance_sum += dist;
                 }
                 dl[i] = distance_sum;
@@ -321,14 +366,15 @@ struct NSG {
     bool conflict(const Node& v, const Node& p) const {
         // true if p is in v's neighbor r's neighbor (edge pr is not detour)
         for (const auto& r : v.neighbors) {
-            if (r.get().point.id == p.point.id) return true;
-            for (const auto& r_neighbor : r.get().neighbors) {
-                if (r_neighbor.get().point.id != p.point.id) continue;
+            if (r.id == p.id) return true;
+            const auto& r_node = nodes[r.id];
+            for (const auto& r_neighbor : r_node.neighbors) {
+                if (r_neighbor.id != p.id) continue;
 
                 // check if pr is not detour
-                auto dist_from_v_to_p = df(p.point, v.point);
-                auto dist_from_v_to_r = df(r.get().point, v.point);
-                auto dist_from_r_to_p = df(p.point, r.get().point);
+                auto dist_from_v_to_p = calc_dist(p.data, v.data);
+                auto dist_from_v_to_r = calc_dist(r_node.data, v.data);
+                auto dist_from_r_to_p = calc_dist(p.data, r_node.data);
                 if (dist_from_v_to_r < dist_from_v_to_p &&
                         dist_from_v_to_p > dist_from_r_to_p) return true;
             }
@@ -336,81 +382,62 @@ struct NSG {
         return false;
     }
 
-    void dfs(const Node& node, unordered_map<size_t, bool>& visited) {
+    void dfs(int node_id, vector<bool>& visited) {
+        const auto& node = nodes[node_id];
         for (const auto& neighbor : node.neighbors) {
-            if (visited[neighbor.get().point.id]) continue;
-            visited[neighbor.get().point.id] = true;
-            dfs(neighbor.get(), visited);
+            if (visited[neighbor.id]) continue;
+            visited[neighbor.id] = true;
+            dfs(neighbor.id, visited);
         }
     }
 
-    void build(const string& data_path, const string& knng_path, unsigned m,
-               unsigned n_sample, int n, int l, int c) {
-        // init
-        auto series_for_knng = load_data(data_path, n);
-        auto series_for_nsg = series_for_knng;
+    void build(const string& data_path, const string& aknng_path, int n) {
+        load_aknng(data_path, aknng_path, n);
 
-        const auto& knn_graph = load_graph(series_for_knng, knng_path, n);
-        init_nodes(series_for_nsg);
+        navi_node_id = find_navi_node_id(1000);
+        cout << "complete: load data and AKNNG" << endl;
 
-        const auto navi_node_id = find_navi_node_id(n_sample);
-        const auto& navi_node_knng = knn_graph[navi_node_id];
-        navi_node = &nodes[navi_node_id];
-
-        cout << "complete: load data and kNNG" << endl;
-
-        // create
-        const auto checked_node_list_along_search = [&]() {
-            vector<vector<reference_wrapper<const Node>>> node_list(knn_graph.size());
+        vector<Neighbors> neighbor_candidate_list(nodes.size());
 #pragma omp parallel for
-            for (unsigned i = 0; i < knn_graph.size(); i++) {
-                const auto& v = knn_graph[i];
-                const auto nodes = knn_search_with_checked(v, navi_node_knng, l, c);
-                node_list[i] = nodes;
+        for (int node_id = 0; node_id < nodes.size(); ++node_id) {
+            const auto& node = nodes[node_id];
+            neighbor_candidate_list[node_id] = calc_neighbor_candidates(node, navi_node_id);
+        }
+
+        cout << "complete: calculate neighbor candidates" << endl;
+
+        for (unsigned node_id = 0; node_id < nodes.size(); node_id++) {
+            auto& node = nodes[node_id];
+
+            // calculate new neighbors
+            Neighbors new_neighbors;
+            for (const auto& neighbor : neighbor_candidate_list[node_id]) {
+                const auto& p = nodes[neighbor.id];
+                if (p.id == node.id || conflict(node, p)) continue;
+                new_neighbors.emplace_back(neighbor);
+                if (new_neighbors.size() >= m) break;
             }
-            return node_list;
-        }();
 
-        cout << "complete: calcurate kNN" << endl;
-
-        const unsigned par = nodes.size() / 10;
-        for (unsigned i = 0; i < nodes.size(); i++) {
-            auto& v = nodes[i];
-
-            // show progress
-            if (v.point.id % par == 0) {
-                float progress = v.point.id / par * 10;
-                cout << "progress: " << progress << "%" << endl;
-            }
-
-            for (const auto& p_knng : checked_node_list_along_search[i]) {
-                auto& p = nodes[p_knng.get().point.id];
-                if (p.point == v.point && conflict(v, p)) continue;
-                v.add_neighbor(p);
-                if (v.get_n_neighbors() >= m) break;
-            }
+            // assign new neighbors
+            node.neighbors = new_neighbors;
         }
 
         cout << "complete: create NSG" << endl;
 
         while (true) {
-            // check connection with dfs
-            auto connected = [&]() {
-                auto visited = unordered_map<size_t, bool>(nodes.size());
-                visited[navi_node_id] = true;
-                dfs(*navi_node, visited);
-                return visited;
-            }();
+            // check connected flag
+            vector<bool> connected(nodes.size());
+            dfs(navi_node_id, connected);
 
-            // connect disconnected node
+            // connect disjoint node
             bool all_connected = true;
-            for (const auto& node : nodes) {
-                if (connected[node.point.id]) continue;
-                auto& disconnected_node = nodes[node.point.id];
-                const auto knn_to_disconnected = knn_search(disconnected_node.point, 1, l).result;
-                auto& nn_to_disconnected = nodes[knn_to_disconnected[0].id];
-                nn_to_disconnected.add_neighbor(disconnected_node);
+            for (auto& node : nodes) {
+                if (connected[node.id]) continue;
+
+                // if disconnected
                 all_connected = false;
+                const auto nn = knn_search(node.data, 1, l_construct).result[0];
+                nodes[nn.id].add_neighbor(nn.dist, node.id);
             }
             if (all_connected) break;
         }
