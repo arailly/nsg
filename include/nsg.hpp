@@ -95,7 +95,7 @@ struct NSG {
     mt19937 engine;
 
     NSG(int m, int l_construct = 40, int c_construct = 500, string dist_kind = "euclidean") :
-            l_construct(l_construct), c_construct(c_construct),
+            m(m), l_construct(l_construct), c_construct(c_construct),
             dist_kind(dist_kind), calc_dist(select_distance(dist_kind)),
             engine(mt19937(42)) {}
 
@@ -391,19 +391,27 @@ struct NSG {
     }
 
     void build(const string& data_path, const string& aknng_path, int n) {
-        load_aknng(data_path, aknng_path, n);
+        const auto dataset = load_data(data_path, n);
+        load_aknng(dataset, aknng_path, n);
 
-        navi_node_id = find_navi_node_id(1000);
+        navi_node_id = calc_medoid(dataset);
         cout << "complete: load data and AKNNG" << endl;
 
         vector<Neighbors> neighbor_candidate_list(nodes.size());
 #pragma omp parallel for
         for (int node_id = 0; node_id < nodes.size(); ++node_id) {
             const auto& node = nodes[node_id];
-            neighbor_candidate_list[node_id] = calc_neighbor_candidates(node);
+            auto neighbor_candidates = calc_neighbor_candidates(node);
+            sort_neighbors(neighbor_candidates);
+            neighbor_candidate_list[node_id] = neighbor_candidates;
         }
 
         cout << "complete: calculate neighbor candidates" << endl;
+
+        // clear knn
+        for (auto& node : nodes) {
+            node.clear_neighbor();
+        }
 
         for (unsigned node_id = 0; node_id < nodes.size(); node_id++) {
             auto& node = nodes[node_id];
