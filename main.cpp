@@ -40,5 +40,4 @@ int main() {
     const string log_path = save_dir + "log-" + save_postfix;
     const string result_path = save_dir + "result-" + save_postfix;
     results.save(log_path, result_path);
-    }
 }
